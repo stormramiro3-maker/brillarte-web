@@ -9,33 +9,24 @@ exports.handler = async (event, context) => {
 
   const siteID = context.site?.id;
   const token = process.env.NETLIFY_API_TOKEN;
-  const blobUrl = `https://api.netlify.com/api/v1/blobs/${siteID}/catalogo/cache`;
-  const isRefresh = event.queryStringParameters?.refresh === REFRESH_KEY;
 
-  if (!isRefresh) {
-    try {
-      const cached = await fetch(blobUrl, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (cached.ok) {
-        const data = await cached.json();
-        return { statusCode: 200, headers: { ...headers, 'X-Cache': 'HIT' }, body: JSON.stringify(data) };
-      }
-    } catch(e) {}
+  if (event.queryStringParameters?.refresh === REFRESH_KEY) {
+    return { 
+      statusCode: 200, 
+      headers, 
+      body: JSON.stringify({ 
+        debug: true,
+        siteID: siteID || 'UNDEFINED',
+        tokenPresent: !!token,
+        tokenPrefix: token ? token.substring(0, 10) : 'NONE'
+      }) 
+    };
   }
 
   try {
     const res = await fetch(APPS_SCRIPT_URL);
     const data = await res.json();
-    await fetch(blobUrl, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    });
-    return { statusCode: 200, headers: { ...headers, 'X-Cache': 'MISS' }, body: JSON.stringify(data) };
+    return { statusCode: 200, headers, body: JSON.stringify(data) };
   } catch(e) {
     return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: e.message }) };
   }
