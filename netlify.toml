@@ -1,0 +1,8 @@
+[[redirects]]
+  from = "/api/catalogo"
+  to = "/.netlify/functions/catalogo"
+  status = 200
+
+[build]
+  publish = "public"
+  functions = "netlify/functions"
