@@ -13,14 +13,13 @@ exports.handler = async (event) => {
 
   const params = event.queryStringParameters || {};
 
-  // Ping para cron-job
+  // Ping para cron-job — responde OK inmediatamente y recarga en background
   if (params.ping === 'true') {
     if (!cache || !cacheTime || (Date.now() - cacheTime) >= CACHE_TTL) {
-      try {
-        const res = await fetch(APPS_SCRIPT_URL);
-        cache = await res.json();
-        cacheTime = Date.now();
-      } catch(e) {}
+      fetch(APPS_SCRIPT_URL)
+        .then(r => r.json())
+        .then(data => { cache = data; cacheTime = Date.now(); })
+        .catch(() => {});
     }
     return { statusCode: 200, headers, body: '{"ok":true}' };
   }
@@ -37,11 +36,17 @@ exports.handler = async (event) => {
     }
   }
 
-  // Servir desde caché
   if (cache && cacheTime && (Date.now() - cacheTime) < CACHE_TTL) {
     return { statusCode: 200, headers: { ...headers, 'X-Cache': 'HIT' }, body: JSON.stringify(cache) };
   }
 
-  // Cargar desde Apps Script
   try {
-    con
+    const res = await fetch(APPS_SCRIPT_URL);
+    cache = await res.json();
+    cacheTime = Date.now();
+    return { statusCode: 200, headers: { ...headers, 'X-Cache': 'MISS' }, body: JSON.stringify(cache) };
+  } catch(e) {
+    if (cache) return { statusCode: 200, headers, body: JSON.stringify(cache) };
+    return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: e.message }) };
+  }
+};
