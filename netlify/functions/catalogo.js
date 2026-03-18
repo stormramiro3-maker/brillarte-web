@@ -2,41 +2,50 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbySaC7CZufMVK-M
 const REFRESH_KEY = 'brillarte2025';
 const SITE_ID = 'd59b87e3-503d-4053-94e0-67880239c607';
 
+let cache = null;
+let cacheTime = null;
+const CACHE_TTL = 5 * 60 * 1000;
+
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json'
   };
 
-  const token = process.env.NETLIFY_API_TOKEN;
-  const blobUrl = `https://api.netlify.com/api/v1/blobs/${SITE_ID}/catalogo/cache`;
-  const isRefresh = event.queryStringParameters?.refresh === REFRESH_KEY;
+  // Endpoint para cron-job — devuelve solo OK
+  if (event.path === '/.netlify/functions/catalogo/ping') {
+    if (!cache || !cacheTime || (Date.now() - cacheTime) >= CACHE_TTL) {
+      try {
+        const res = await fetch(APPS_SCRIPT_URL);
+        cache = await res.json();
+        cacheTime = Date.now();
+      } catch(e) {}
+    }
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+  }
 
-  if (!isRefresh) {
+  if (event.queryStringParameters?.refresh === REFRESH_KEY) {
     try {
-      const cached = await fetch(blobUrl, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (cached.ok) {
-        const data = await cached.json();
-        return { statusCode: 200, headers: { ...headers, 'X-Cache': 'HIT' }, body: JSON.stringify(data) };
-      }
-    } catch(e) {}
+      const res = await fetch(APPS_SCRIPT_URL);
+      cache = await res.json();
+      cacheTime = Date.now();
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true, message: 'Cache actualizado' }) };
+    } catch(e) {
+      return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: e.message }) };
+    }
+  }
+
+  if (cache && cacheTime && (Date.now() - cacheTime) < CACHE_TTL) {
+    return { statusCode: 200, headers: { ...headers, 'X-Cache': 'HIT' }, body: JSON.stringify(cache) };
   }
 
   try {
     const res = await fetch(APPS_SCRIPT_URL);
-    const data = await res.json();
-    await fetch(blobUrl, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    });
-    return { statusCode: 200, headers: { ...headers, 'X-Cache': 'MISS' }, body: JSON.stringify(data) };
+    cache = await res.json();
+    cacheTime = Date.now();
+    return { statusCode: 200, headers: { ...headers, 'X-Cache': 'MISS' }, body: JSON.stringify(cache) };
   } catch(e) {
+    if (cache) return { statusCode: 200, headers, body: JSON.stringify(cache) };
     return { statusCode: 500, headers, body: JSON.stringify({ ok: false, error: e.message }) };
   }
 };
