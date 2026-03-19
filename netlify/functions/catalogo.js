@@ -13,18 +13,17 @@ exports.handler = async (event) => {
 
   const params = event.queryStringParameters || {};
 
-  // Ping para cron-job — responde OK inmediatamente y recarga en background
   if (params.ping === 'true') {
     if (!cache || !cacheTime || (Date.now() - cacheTime) >= CACHE_TTL) {
-      fetch(APPS_SCRIPT_URL)
-        .then(r => r.json())
-        .then(data => { cache = data; cacheTime = Date.now(); })
-        .catch(() => {});
+      try {
+        const res = await fetch(APPS_SCRIPT_URL);
+        cache = await res.json();
+        cacheTime = Date.now();
+      } catch(e) {}
     }
     return { statusCode: 200, headers, body: '{"ok":true}' };
   }
 
-  // Refresh manual
   if (params.refresh === REFRESH_KEY) {
     try {
       const res = await fetch(APPS_SCRIPT_URL);
