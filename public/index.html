@@ -570,677 +570,803 @@
 
 <div class="toast" id="toast"></div>
 
-<script>const API_URL      = 'https://script.google.com/macros/s/AKfycbySaC7CZufMVK-MoJ6Ry_nZYAJV3ouTtqb5w3oKjat8_w39n7hVSW_G0c8fpTX91P3RDA/exec';
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────────
+const API_URL      = 'https://script.google.com/macros/s/AKfycbySaC7CZufMVK-MoJ6Ry_nZYAJV3ouTtqb5w3oKjat8_w39n7hVSW_G0c8fpTX91P3RDA/exec';
 const SUPA_URL     = 'https://fgtnttmagzkwkaxhsbqk.supabase.co';
 const SUPA_KEY     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZndG50dG1hZ3prd2theGhzYnFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2NTg3OTYsImV4cCI6MjA4OTIzNDc5Nn0.9wXFjjvPNlEYnCYniFDRwPLcZ7NbqSTF8zzAB6f474Y';
+
 const ICONS = {
-'Diamond Painting':'💎','Común':'💎','común':'💎',
-'Premium':'👑','premium':'👑','Infantil':'🌈','infantil':'🌈',
-'Especial':'✨','especial':'✨','Hombre Araña':'🕷️','Messi':'⚽',
-'Arte & Accesorios':'🎨','Lápices metálicos':'✏️','Lápices plásticos':'🖊️',
-'Mariposas':'🦋','Muñecos':'🧸','Organizadores Plásticos':'📦',
-'Pulseras':'📿','Raspados':'🎨','Stickers 3D':'⭐',
+  'Diamond Painting':'💎','Común':'💎','común':'💎',
+  'Premium':'👑','premium':'👑','Infantil':'🌈','infantil':'🌈',
+  'Especial':'✨','especial':'✨','Hombre Araña':'🕷️','Messi':'⚽',
+  'Arte & Accesorios':'🎨','Lápices metálicos':'✏️','Lápices plásticos':'🖊️',
+  'Mariposas':'🦋','Muñecos':'🧸','Organizadores Plásticos':'📦',
+  'Pulseras':'📿','Raspados':'🎨','Stickers 3D':'⭐',
 };
 function icon(n){ return ICONS[n]||ICONS[n?.toLowerCase()]||'✨'; }
+
+// ── FILTROS DE DISEÑO ──────────────────────────────────────────────────────────
+// Cada producto tiene hasta 3 columnas de tag en la Sheet (Tag1, Tag2, Tag3).
+// El script las lee y las combina; aquí se definen las etiquetas para mostrar.
 const FILTER_TAGS = [
-{ id:'animales',   label:'🐾 Animales' },
-{ id:'paisajes',   label:'🏞 Paisajes' },
-{ id:'flores',     label:'🌸 Flores' },
-{ id:'fantasia',   label:'🦄 Fantasía' },
-{ id:'noche',      label:'🌙 Noche' },
-{ id:'mar',        label:'🌊 Mar & Playa' },
-{ id:'personajes', label:'👤 Personajes' },
-{ id:'religioso',  label:'✝ Religioso' },
-{ id:'colorido',   label:'🌈 Colorido' },
-{ id:'comida',     label:'🍕 Comida' },
-{ id:'personas',   label:'🧑 Personas' },
+  { id:'animales',   label:'🐾 Animales' },
+  { id:'paisajes',   label:'🏞 Paisajes' },
+  { id:'flores',     label:'🌸 Flores' },
+  { id:'fantasia',   label:'🦄 Fantasía' },
+  { id:'noche',      label:'🌙 Noche' },
+  { id:'mar',        label:'🌊 Mar & Playa' },
+  { id:'personajes', label:'👤 Personajes' },
+  { id:'religioso',  label:'✝ Religioso' },
+  { id:'colorido',   label:'🌈 Colorido' },
+  { id:'comida',     label:'🍕 Comida' },
+  { id:'personas',   label:'🧑 Personas' },
 ];
+
+// Filtros de stock — siempre visibles en pantalla de productos
 const STOCK_FILTERS = [
-{ id:'todos',     label:'Todos' },
-{ id:'con_stock', label:'✓ Con stock' },
-{ id:'sin_stock', label:'✗ Sin stock' },
+  { id:'todos',     label:'Todos' },
+  { id:'con_stock', label:'✓ Con stock' },
+  { id:'sin_stock', label:'✗ Sin stock' },
 ];
+
+// ── STATE ──────────────────────────────────────────────────────────────────────
 let DATA = null, WA_NUM = '5492915665357';
 let nav = { main:null, sub:null, size:null };
 let cart = [], modalItem = null, modalQtyVal = 1, qtys = {};
+// ── FILTER STATE ──
 let fStock   = 'todos';   // stock filter
 let fSubs    = [];        // subcategory filter [] = all
 let fSizes   = [];        // size filter [] = all
 let fTags    = [];        // tag filter [] = all
 let fSearch  = '';        // search string
 let fSort    = 'az';      // sort order
+// legacy aliases (keep for compat)
 let activeStockFilter = 'todos';
 let activeTagFilter   = null;
 let activeCatFilters  = [];
+
+// ── API ────────────────────────────────────────────────────────────────────────
 async function loadData(){
-try {
-const r = await fetch('/api/catalogo');
-DATA = await r.json();
-if(DATA.config?.whatsapp) WA_NUM = String(DATA.config.whatsapp);
-document.getElementById('waLink').href = `https://wa.me/${WA_NUM}`;
-} catch(e){ DATA = { ok:false, catalog:{} }; }
+  try {
+    const r = await fetch('/api/catalogo');
+    DATA = await r.json();
+    if(DATA.config?.whatsapp) WA_NUM = String(DATA.config.whatsapp);
+    document.getElementById('waLink').href = `https://wa.me/${WA_NUM}`;
+    // Banner
+
+  } catch(e){ DATA = { ok:false, catalog:{} }; }
 }
+
+// ── HELPERS ────────────────────────────────────────────────────────────────────
 function fmt(p){ return (!p && p!==0) ? 'Consultar' : '$\u202f'+Number(p).toLocaleString('es-AR'); }
 function esc(s){ return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 function imgUrl(url){
-if(!url) return '';
-const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-if(m) return 'https://drive.google.com/uc?export=view&id='+m[1];
-const m2 = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
-if(m2) return 'https://drive.google.com/uc?export=view&id='+m2[1];
-const mc = url.match(/cloudinary\.com\/([^/]+)\/image\/upload\/(?:v\d+\/)?(.+)/);
-if(mc) return 'https://res.cloudinary.com/'+mc[1]+'/image/upload/w_500,h_500,c_fill,q_auto,f_auto/'+mc[2];
-return url;
+  if(!url) return '';
+  const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if(m) return 'https://drive.google.com/uc?export=view&id='+m[1];
+  const m2 = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
+  if(m2) return 'https://drive.google.com/uc?export=view&id='+m2[1];
+  const mc = url.match(/cloudinary\.com\/([^/]+)\/image\/upload\/(?:v\d+\/)?(.+)/);
+  if(mc) return 'https://res.cloudinary.com/'+mc[1]+'/image/upload/w_500,h_500,c_fill,q_auto,f_auto/'+mc[2];
+  return url;
 }
 function imgFull(url){
-if(!url) return url;
-const cdn = _cdnBase(url);
-if(cdn) return 'https://res.cloudinary.com/'+cdn.acct+'/image/upload/c_limit,q_auto,f_auto/'+cdn.file;
-return url;
+  if(!url) return url;
+  const cdn = _cdnBase(url);
+  if(cdn) return 'https://res.cloudinary.com/'+cdn.acct+'/image/upload/c_limit,q_auto,f_auto/'+cdn.file;
+  return url;
 }
 function imgFull(url){
-if(!url) return '';
-const mc = url.match(/cloudinary\.com\/([^/]+)\/image\/upload\/(?:v\d+\/)?(.+)/);
-if(mc) return 'https://res.cloudinary.com/'+mc[1]+'/image/upload/c_limit,q_auto,f_auto/'+mc[2];
-return url;
+  if(!url) return '';
+  const mc = url.match(/cloudinary\.com\/([^/]+)\/image\/upload\/(?:v\d+\/)?(.+)/);
+  if(mc) return 'https://res.cloudinary.com/'+mc[1]+'/image/upload/c_limit,q_auto,f_auto/'+mc[2];
+  return url;
 }
 function getProductTags(p){
-return [p.tag1, p.tag2, p.tag3]
-.map(t=>String(t||'').trim().toLowerCase())
-.filter(Boolean);
+  // Lee tag1, tag2, tag3 — columnas separadas de la Sheet con lista desplegable
+  return [p.tag1, p.tag2, p.tag3]
+    .map(t=>String(t||'').trim().toLowerCase())
+    .filter(Boolean);
 }
+
+// ── NAVIGATION ─────────────────────────────────────────────────────────────────
 function showPage(name){
-document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-document.getElementById('page-'+name).classList.add('active');
-window.scrollTo(0,0);
-if(name==='catalog') renderCatalog();
-closeMenu();
-const waFloat = document.getElementById('waFloat');
-if(waFloat) waFloat.classList.toggle('show', name!=='home' && name!=='contacto');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  window.scrollTo(0,0);
+  if(name==='catalog') renderCatalog();
+  closeMenu();
+  // WA float: show on all pages except home and contacto
+  const waFloat = document.getElementById('waFloat');
+  if(waFloat) waFloat.classList.toggle('show', name!=='home' && name!=='contacto');
 }
 function resetFilters(){ fStock='todos'; fSubs=[]; fSizes=[]; fTags=[]; fSearch=''; fSort='az'; activeStockFilter='todos'; activeTagFilter=null; activeCatFilters=[]; }
 function gotoCatalog(){ nav={main:null,sub:null,size:null}; resetFilters(); showPage('catalog'); }
 function goBack(){
-if(nav.main){ nav={main:null,sub:null,size:null}; }
-else { showPage('home'); return; }
-resetFilters();
-renderCatalog(); window.scrollTo(0,0);
+  if(nav.main){ nav={main:null,sub:null,size:null}; }
+  else { showPage('home'); return; }
+  resetFilters();
+  renderCatalog(); window.scrollTo(0,0);
 }
 function drillMain(main){ nav={main,sub:null,size:null}; resetFilters(); renderCatalog(); window.scrollTo(0,0); }
+
+// ── BACK BUTTON ────────────────────────────────────────────────────────────────
 function renderBack(){
-const el = document.getElementById('backArea');
-if(!nav.main){ el.innerHTML=''; return; }
-el.innerHTML = `<button class="back-btn" onclick="goBack()">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-Catálogo
-</button>`;
+  const el = document.getElementById('backArea');
+  if(!nav.main){ el.innerHTML=''; return; }
+  el.innerHTML = `<button class="back-btn" onclick="goBack()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Catálogo
+  </button>`;
 }
+
+// ── BREADCRUMB ─────────────────────────────────────────────────────────────────
 function renderBreadcrumb(){
-let parts = [`<span onclick="gotoCatalog()">Productos</span>`];
-if(nav.main) parts.push(`<span class="sep">›</span><span class="cur">${nav.main}</span>`);
-document.getElementById('breadcrumb').innerHTML = parts.join('');
+  let parts = [`<span onclick="gotoCatalog()">Productos</span>`];
+  if(nav.main) parts.push(`<span class="sep">›</span><span class="cur">${nav.main}</span>`);
+  document.getElementById('breadcrumb').innerHTML = parts.join('');
 }
+
+// ── CATALOG RENDER ─────────────────────────────────────────────────────────────
 function flattenMain(mainData){
-let all = [];
-Object.keys(mainData).forEach(s=>{
-const val = mainData[s];
-if(Array.isArray(val)){
-val.forEach(p=>all.push({...p, _sub:s, _size:''}));
-} else {
-Object.keys(val).forEach(sz=>{
-(val[sz]||[]).forEach(p=>all.push({...p, _sub:s, _size:sz}));
-});
+  let all = [];
+  Object.keys(mainData).forEach(s=>{
+    const val = mainData[s];
+    if(Array.isArray(val)){
+      val.forEach(p=>all.push({...p, _sub:s, _size:''}));
+    } else {
+      Object.keys(val).forEach(sz=>{
+        (val[sz]||[]).forEach(p=>all.push({...p, _sub:s, _size:sz}));
+      });
+    }
+  });
+  return all;
 }
-});
-return all;
-}
+
 function sortProds(arr){
-return arr.sort((a,b)=>{
-const sa=(a.stock>0?0:1), sb=(b.stock>0?0:1);
-if(sa!==sb) return sa-sb;
-return a.name.localeCompare(b.name,'es');
-});
+  return arr.sort((a,b)=>{
+    const sa=(a.stock>0?0:1), sb=(b.stock>0?0:1);
+    if(sa!==sb) return sa-sb;
+    return a.name.localeCompare(b.name,'es');
+  });
 }
+
 function renderCatalog(){
-renderBack();
-renderBreadcrumb();
-const content = document.getElementById('catContent');
-const title   = document.getElementById('catTitle');
-const sub     = document.getElementById('catSub');
-if(!DATA){
-content.innerHTML = `<div class="loading-state"><div class="loading-spin"></div>Cargando catálogo...</div>`;
-if(window._loadingPromise) window._loadingPromise.then(()=>renderCatalog());
-else loadData().then(()=>renderCatalog());
-return;
+  renderBack();
+  renderBreadcrumb();
+  const content = document.getElementById('catContent');
+  const title   = document.getElementById('catTitle');
+  const sub     = document.getElementById('catSub');
+
+  if(!DATA){
+    content.innerHTML = `<div class="loading-state"><div class="loading-spin"></div>Cargando catálogo...</div>`;
+    // Data already loading from init — just wait for it
+    if(window._loadingPromise) window._loadingPromise.then(()=>renderCatalog());
+    else loadData().then(()=>renderCatalog());
+    return;
+  }
+
+  const catalog = DATA.catalog || {};
+
+  // Nivel 0 — 2 categorías principales
+  if(!nav.main){
+    title.innerHTML = 'Todos los <span>productos</span>';
+    sub.textContent = 'Elegí una categoría';
+    const mains = Object.keys(catalog);
+    if(!mains.length){ content.innerHTML='<div class="loading-state">No hay productos cargados aún.</div>'; return; }
+    content.innerHTML = `<div class="cat-grid">${mains.map(m=>{
+      const count = countProducts(catalog[m]);
+      return `<div class="cat-card" onclick="drillMain('${esc(m)}')">
+        <span class="cat-icon">${icon(m)}</span>
+        <div class="cat-name">${m}</div>
+        <div class="cat-count">${count} producto${count!==1?'s':''}</div>
+        <span class="cat-arrow">→</span>
+      </div>`;
+    }).join('')}</div>`;
+    return;
+  }
+
+  // Nivel 1 — todos los productos del main con búsqueda + panel filtros
+  const mainData = catalog[nav.main] || {};
+  const allProds = sortProds(flattenMain(mainData));
+  const hasSizes = nav.main === 'Diamond Painting';
+  const cats  = [...new Set(Object.keys(mainData))];
+  const sizes = hasSizes ? [...new Set(allProds.map(p=>p._size).filter(Boolean))].sort() : [];
+
+  title.innerHTML = `<span>${nav.main}</span>`;
+  sub.textContent = '';
+
+  content.innerHTML = buildMainView(allProds, cats, sizes, hasSizes);
+  renderProductsFiltered(allProds);
 }
-const catalog = DATA.catalog || {};
-if(!nav.main){
-title.innerHTML = 'Todos los <span>productos</span>';
-sub.textContent = 'Elegí una categoría';
-const mains = Object.keys(catalog);
-if(!mains.length){ content.innerHTML='<div class="loading-state">No hay productos cargados aún.</div>'; return; }
-content.innerHTML = `<div class="cat-grid">${mains.map(m=>{
-const count = countProducts(catalog[m]);
-return `<div class="cat-card" onclick="drillMain('${esc(m)}')">
-<span class="cat-icon">${icon(m)}</span>
-<div class="cat-name">${m}</div>
-<div class="cat-count">${count} producto${count!==1?'s':''}</div>
-<span class="cat-arrow">→</span>
-</div>`;
-}).join('')}</div>`;
-return;
-}
-const mainData = catalog[nav.main] || {};
-const allProds = sortProds(flattenMain(mainData));
-const hasSizes = nav.main === 'Diamond Painting';
-const cats  = [...new Set(Object.keys(mainData))];
-const sizes = hasSizes ? [...new Set(allProds.map(p=>p._size).filter(Boolean))].sort() : [];
-title.innerHTML = `<span>${nav.main}</span>`;
-sub.textContent = '';
-content.innerHTML = buildMainView(allProds, cats, sizes, hasSizes);
-renderProductsFiltered(allProds);
-}
+
 function countProducts(val){
-if(!val) return 0;
-if(Array.isArray(val)) return val.length;
-return Object.values(val).reduce((s,v)=>s+(Array.isArray(v)?v.length:countProducts(v)),0);
+  if(!val) return 0;
+  if(Array.isArray(val)) return val.length;
+  return Object.values(val).reduce((s,v)=>s+(Array.isArray(v)?v.length:countProducts(v)),0);
 }
+
+// ── MAIN VIEW: search bar + results ──────────────────────────────────────────
 function buildMainView(allProds, cats, sizes, hasSizes){
-return `
-<div class="search-bar">
-<div class="search-input-wrap">
-<input class="search-input" id="searchInput" type="text" placeholder="Buscar por nombre..."
-onkeydown="if(event.key==='Enter')doSearch()"/>
-<button class="search-btn" onclick="doSearch()" title="Buscar">
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-</button>
-</div>
-<button class="filter-btn" id="filterBtn" onclick="openFPanel()">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-Filtrar
-</button>
-<button class="clear-btn" id="clearBtn" onclick="clearAllFilters()">✕ Quitar</button>
-</div>
-<div class="active-filters" id="activeFilters"></div>
-<div class="results-count" id="resultsCount"></div>
-<div id="prodResults"></div>`;
+  return `
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <input class="search-input" id="searchInput" type="text" placeholder="Buscar por nombre..."
+        onkeydown="if(event.key==='Enter')doSearch()"/>
+      <button class="search-btn" onclick="doSearch()" title="Buscar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </button>
+    </div>
+    <button class="filter-btn" id="filterBtn" onclick="openFPanel()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      Filtrar
+    </button>
+    <button class="clear-btn" id="clearBtn" onclick="clearAllFilters()">✕ Quitar</button>
+  </div>
+  <div class="active-filters" id="activeFilters"></div>
+  <div class="results-count" id="resultsCount"></div>
+  <div id="prodResults"></div>`;
 }
+
 function doSearch(){
-const val = (document.getElementById('searchInput')?.value||'').trim();
-fSearch = val.toLowerCase();
-updateClearBtn();
-const catalog = DATA.catalog || {};
-const mainData = catalog[nav.main] || {};
-renderProductsFiltered(sortProds(flattenMain(mainData)));
+  const val = (document.getElementById('searchInput')?.value||'').trim();
+  fSearch = val.toLowerCase();
+  updateClearBtn();
+  const catalog = DATA.catalog || {};
+  const mainData = catalog[nav.main] || {};
+  renderProductsFiltered(sortProds(flattenMain(mainData)));
 }
+
 function openFPanel(){
-const catalog = DATA.catalog || {};
-const mainData = catalog[nav.main] || {};
-const allProds = flattenMain(mainData);
-const hasSizes = nav.main === 'Diamond Painting';
-const cats  = [...new Set(Object.keys(mainData))];
-const sizes = hasSizes ? [...new Set(allProds.map(p=>p._size).filter(Boolean))].sort() : [];
-const presentTags = [...new Set(allProds.flatMap(p=>getProductTags(p)))];
-const availTags = FILTER_TAGS.filter(f=>presentTags.includes(f.id));
-const sections = [
-{
-id:'sort_az', label:'Orden alfabético',
-chips: [{id:'az',label:'A → Z'},{id:'za',label:'Z → A'}].map(f=>({id:f.id,label:f.label,active:fSort===f.id,single:true}))
-},
-{
-id:'sort_price', label:'Orden por precio',
-chips: [{id:'price_asc',label:'Menor a mayor'},{id:'price_desc',label:'Mayor a menor'}].map(f=>({id:f.id,label:f.label,active:fSort===f.id,single:true}))
-},
-{
-id:'stock', label:'Stock',
-chips: STOCK_FILTERS.map(f=>({id:f.id, label:f.label, active:fStock===f.id, single:true}))
-},
-{
-id:'sub', label: nav.main==='Diamond Painting' ? 'Tipo de Diamond Painting' : 'Tipo de Arte & Accesorio',
-chips: cats.map(s=>({id:s, label:`${icon(s)} ${s}`, active:fSubs.includes(s)}))
-},
-];
-if(hasSizes) sections.push({
-id:'size', label:'Tamaño',
-chips: sizes.map(s=>({id:s, label:s+' cm', active:fSizes.includes(s)}))
-});
-if(availTags.length) sections.push({
-id:'tag', label:'Tipo de diseño',
-chips: availTags.map(f=>({id:f.id, label:f.label, active:fTags.includes(f.id)}))
-});
-document.getElementById('fpanelBody').innerHTML = sections.map(sec=>`
-<div class="fpanel-section open" id="fsec-${sec.id}">
-<div class="fpanel-section-hd" onclick="toggleFSection('${sec.id}')">
-<span class="fpanel-section-label">${sec.label}</span>
-<span class="fpanel-section-arrow">▼</span>
-</div>
-<div class="fpanel-section-body">
-${sec.chips.map(ch=>`<button class="fchip${ch.active?' active':''}" id="fchip-${sec.id}-${esc(ch.id)}"
-onclick="toggleFChip('${sec.id}','${esc(ch.id)}',${ch.single||false})">${ch.label}</button>`).join('')}
-</div>
-</div>`).join('');
-document.getElementById('fpanelOverlay').classList.add('open');
-document.getElementById('fpanel').classList.add('open');
+  const catalog = DATA.catalog || {};
+  const mainData = catalog[nav.main] || {};
+  const allProds = flattenMain(mainData);
+  const hasSizes = nav.main === 'Diamond Painting';
+  const cats  = [...new Set(Object.keys(mainData))];
+  const sizes = hasSizes ? [...new Set(allProds.map(p=>p._size).filter(Boolean))].sort() : [];
+  const presentTags = [...new Set(allProds.flatMap(p=>getProductTags(p)))];
+  const availTags = FILTER_TAGS.filter(f=>presentTags.includes(f.id));
+
+  const sections = [
+    {
+      id:'sort_az', label:'Orden alfabético',
+      chips: [{id:'az',label:'A → Z'},{id:'za',label:'Z → A'}].map(f=>({id:f.id,label:f.label,active:fSort===f.id,single:true}))
+    },
+    {
+      id:'sort_price', label:'Orden por precio',
+      chips: [{id:'price_asc',label:'Menor a mayor'},{id:'price_desc',label:'Mayor a menor'}].map(f=>({id:f.id,label:f.label,active:fSort===f.id,single:true}))
+    },
+    {
+      id:'stock', label:'Stock',
+      chips: STOCK_FILTERS.map(f=>({id:f.id, label:f.label, active:fStock===f.id, single:true}))
+    },
+    {
+      id:'sub', label: nav.main==='Diamond Painting' ? 'Tipo de Diamond Painting' : 'Tipo de Arte & Accesorio',
+      chips: cats.map(s=>({id:s, label:`${icon(s)} ${s}`, active:fSubs.includes(s)}))
+    },
+  ];
+  if(hasSizes) sections.push({
+    id:'size', label:'Tamaño',
+    chips: sizes.map(s=>({id:s, label:s+' cm', active:fSizes.includes(s)}))
+  });
+  if(availTags.length) sections.push({
+    id:'tag', label:'Tipo de diseño',
+    chips: availTags.map(f=>({id:f.id, label:f.label, active:fTags.includes(f.id)}))
+  });
+
+  document.getElementById('fpanelBody').innerHTML = sections.map(sec=>`
+    <div class="fpanel-section open" id="fsec-${sec.id}">
+      <div class="fpanel-section-hd" onclick="toggleFSection('${sec.id}')">
+        <span class="fpanel-section-label">${sec.label}</span>
+        <span class="fpanel-section-arrow">▼</span>
+      </div>
+      <div class="fpanel-section-body">
+        ${sec.chips.map(ch=>`<button class="fchip${ch.active?' active':''}" id="fchip-${sec.id}-${esc(ch.id)}"
+          onclick="toggleFChip('${sec.id}','${esc(ch.id)}',${ch.single||false})">${ch.label}</button>`).join('')}
+      </div>
+    </div>`).join('');
+
+  document.getElementById('fpanelOverlay').classList.add('open');
+  document.getElementById('fpanel').classList.add('open');
 }
-function closeFPanel(){
-document.getElementById('fpanelOverlay').classList.remove('open');
-document.getElementById('fpanel').classList.remove('open');
+
+function closeFPanel(){ 
+  document.getElementById('fpanelOverlay').classList.remove('open');
+  document.getElementById('fpanel').classList.remove('open');
 }
+
 function toggleFSection(id){
-document.getElementById('fsec-'+id)?.classList.toggle('open');
+  document.getElementById('fsec-'+id)?.classList.toggle('open');
 }
+
 function toggleFChip(section, id, single){
-if(section==='sort_az' || section==='sort_price'){
-fSort = id;
-document.querySelectorAll('[id^="fchip-sort_az-"],[id^="fchip-sort_price-"]').forEach(b=>b.classList.remove('active'));
-document.getElementById(`fchip-${section}-${id}`)?.classList.add('active');
-return;
+  if(section==='sort_az' || section==='sort_price'){
+    fSort = id;
+    // deactivate all sort chips across both sections
+    document.querySelectorAll('[id^="fchip-sort_az-"],[id^="fchip-sort_price-"]').forEach(b=>b.classList.remove('active'));
+    document.getElementById(`fchip-${section}-${id}`)?.classList.add('active');
+    return;
+  }
+  if(section==='stock'){
+    fStock = id;
+    document.querySelectorAll('[id^="fchip-stock-"]').forEach(b=>b.classList.remove('active'));
+    document.getElementById(`fchip-stock-${id}`)?.classList.add('active');
+    return;
+  }
+  const map = {sub:fSubs, size:fSizes, tag:fTags};
+  const arr = map[section];
+  if(!arr) return;
+  const idx = arr.indexOf(id);
+  if(idx>=0) arr.splice(idx,1); else arr.push(id);
+  document.getElementById(`fchip-${section}-${id}`)?.classList.toggle('active', arr.includes(id));
 }
-if(section==='stock'){
-fStock = id;
-document.querySelectorAll('[id^="fchip-stock-"]').forEach(b=>b.classList.remove('active'));
-document.getElementById(`fchip-stock-${id}`)?.classList.add('active');
-return;
-}
-const map = {sub:fSubs, size:fSizes, tag:fTags};
-const arr = map[section];
-if(!arr) return;
-const idx = arr.indexOf(id);
-if(idx>=0) arr.splice(idx,1); else arr.push(id);
-document.getElementById(`fchip-${section}-${id}`)?.classList.toggle('active', arr.includes(id));
-}
+
 function applyFPanel(){
-closeFPanel();
-updateClearBtn();
-const catalog = DATA.catalog || {};
-const mainData = catalog[nav.main] || {};
-renderProductsFiltered(sortProds(flattenMain(mainData)));
+  closeFPanel();
+  updateClearBtn();
+  const catalog = DATA.catalog || {};
+  const mainData = catalog[nav.main] || {};
+  renderProductsFiltered(sortProds(flattenMain(mainData)));
 }
+
 function clearAllFilters(){
-resetFilters();
-const inp = document.getElementById('searchInput');
-if(inp) inp.value = '';
-updateClearBtn();
-const catalog = DATA.catalog || {};
-const mainData = catalog[nav.main] || {};
-renderProductsFiltered(sortProds(flattenMain(mainData)));
+  resetFilters();
+  const inp = document.getElementById('searchInput');
+  if(inp) inp.value = '';
+  updateClearBtn();
+  const catalog = DATA.catalog || {};
+  const mainData = catalog[nav.main] || {};
+  renderProductsFiltered(sortProds(flattenMain(mainData)));
 }
+
 function hasActiveFilters(){
-return fStock!=='todos' || fSubs.length>0 || fSizes.length>0 || fTags.length>0 || fSearch!=='';
+  return fStock!=='todos' || fSubs.length>0 || fSizes.length>0 || fTags.length>0 || fSearch!=='';
 }
+
 function updateClearBtn(){
-const btn = document.getElementById('clearBtn');
-const fbtn = document.getElementById('filterBtn');
-if(!btn) return;
-const active = hasActiveFilters();
-btn.classList.toggle('active', active);
-fbtn?.classList.toggle('has-filters', active);
+  const btn = document.getElementById('clearBtn');
+  const fbtn = document.getElementById('filterBtn');
+  if(!btn) return;
+  const active = hasActiveFilters();
+  btn.classList.toggle('active', active);
+  fbtn?.classList.toggle('has-filters', active);
 }
+
 function renderProductsFiltered(allProds){
-let prods = allProds;
-if(fStock==='con_stock') prods = prods.filter(p=>p.stock>0);
-if(fStock==='sin_stock') prods = prods.filter(p=>p.stock===0);
-if(fSubs.length>0)  prods = prods.filter(p=>fSubs.includes(p._sub));
-if(fSizes.length>0) prods = prods.filter(p=>fSizes.includes(p._size));
-if(fTags.length>0)  prods = prods.filter(p=>getProductTags(p).some(t=>fTags.includes(t)));
-if(fSearch)         prods = prods.filter(p=>p.name.toLowerCase().includes(fSearch));
-const sortVal = document.getElementById('sortSel')?.value || fSort || 'az';
-prods = [...prods].sort((a,b)=>{
-const sa=(a.stock>0?0:1), sb=(b.stock>0?0:1);
-if(sa!==sb) return sa-sb;
-if(sortVal==='za')         return b.name.localeCompare(a.name,'es');
-if(sortVal==='price_asc')  return a.price-b.price;
-if(sortVal==='price_desc') return b.price-a.price;
-return a.name.localeCompare(b.name,'es');
-});
-const rc = document.getElementById('resultsCount');
-if(rc) rc.textContent = `${prods.length} producto${prods.length!==1?'s':''}`;
-const afEl = document.getElementById('activeFilters');
-if(afEl){
-const chips = [];
-if(fStock!=='todos') chips.push({label: fStock==='con_stock'?'Con stock':'Sin stock', clear:"fStock='todos';applyFPanel_silent()"});
-fSubs.forEach(s=>chips.push({label:s, clear:`fSubs=fSubs.filter(x=>x!=='${s}');applyFPanel_silent()`}));
-fSizes.forEach(s=>chips.push({label:s+' cm', clear:`fSizes=fSizes.filter(x=>x!=='${s}');applyFPanel_silent()`}));
-fTags.forEach(t=>{ const fl=FILTER_TAGS.find(f=>f.id===t); chips.push({label:fl?fl.label:t, clear:`fTags=fTags.filter(x=>x!=='${t}');applyFPanel_silent()`}); });
-if(fSearch) chips.push({label:`"${fSearch}"`, clear:"fSearch='';document.getElementById('searchInput').value='';applyFPanel_silent()"});
-afEl.innerHTML = chips.map(ch=>`<span class="af-chip">${ch.label}<button onclick="${ch.clear}">✕</button></span>`).join('');
-}
-updateClearBtn();
-const el = document.getElementById('prodResults');
-if(!el) return;
-if(!prods.length){ el.innerHTML='<div class="no-results">No hay productos con esos filtros.</div>'; return; }
-el.innerHTML = `<div class="prod-grid">${prods.map((p,i)=>{
-const sub  = p._sub, size = p._size;
-const key  = `${sub}|${size}|${p.name}`;
-const ekey = esc(key);
-const out  = p.stock===0;
-const tags = getProductTags(p).join(',');
-const sLbl = p.stock===1?'¡Última unidad!':'';
-const cartItem = cart.find(ci=>ci.key===key);
-const inCartBadge = cartItem ? `<div class="prod-in-cart">En carrito: ${cartItem.qty}</div>` : '';
-const outBadge = out ? `<div class="out-badge"><span>Sin stock</span></div>` : '';
-const imgContent = p.image
-? `<img src="${imgUrl(p.image)}" alt="${p.name}" loading="${i<6?'eager':'lazy'}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.style.display='none'"/>`
-: `<span style="font-size:3rem">${icon(sub)}</span>`;
-return `<div class="prod-card${out?' out':''}" data-key="${ekey}" data-stock="${p.stock||0}" data-tags="${tags}" data-sub="${esc(sub)}" style="animation-delay:${Math.min(i*0.04,0.4)}s">
-<div class="prod-img img-shimmer" onclick="${out?'':` openModal('${esc(p.name)}','${esc(sub)}','${esc(size)}','${esc(p.image||'')}',${p.price||0})`}">
-${imgContent}${outBadge}${inCartBadge}
-${out?'':'<div class="prod-img-overlay"><span>Ver detalle</span></div>'}
-</div>
-<div class="prod-info">
-<div class="prod-name">${p.name}</div>
-<div style="font-size:0.72rem;color:var(--rose);margin-bottom:0.2rem;">${sub}${size?' · '+size+' cm':''}</div>
-<div class="prod-price">${fmt(p.price)}</div>
-<div class="prod-stock-lbl" style="color:#E74C3C">${sLbl}</div>
-<div class="prod-actions">
-<div class="qty-ctrl">
-<button class="qty-btn" onclick="adjQty('${ekey}',-1)" ${out?'disabled':''}>−</button>
-<input class="qty-input" id="q-${ekey}" type="number" min="1" max="${p.stock||1}" value="${qtys[key]||1}"
-oninput="setQty('${ekey}',this.value,${p.stock||0})" ${out?'disabled':''}/>
-<button class="qty-btn" onclick="adjQty('${ekey}',1)" ${out?'disabled':''}>+</button>
-</div>
-<button class="add-cart" onclick="addToCart('${esc(p.name)}','${esc(sub)}','${esc(size)}','${esc(imgUrl(p.image)||'')}','${ekey}',${p.price||0})" ${out?'disabled':''}>+ Agregar</button>
-</div>
-</div>
-</div>`;
-}).join('')}</div>`;
+  let prods = allProds;
+  if(fStock==='con_stock') prods = prods.filter(p=>p.stock>0);
+  if(fStock==='sin_stock') prods = prods.filter(p=>p.stock===0);
+  if(fSubs.length>0)  prods = prods.filter(p=>fSubs.includes(p._sub));
+  if(fSizes.length>0) prods = prods.filter(p=>fSizes.includes(p._size));
+  if(fTags.length>0)  prods = prods.filter(p=>getProductTags(p).some(t=>fTags.includes(t)));
+  if(fSearch)         prods = prods.filter(p=>p.name.toLowerCase().includes(fSearch));
+
+  // Sort
+  const sortVal = document.getElementById('sortSel')?.value || fSort || 'az';
+  prods = [...prods].sort((a,b)=>{
+    // Stock siempre primero — sin stock siempre al fondo
+    const sa=(a.stock>0?0:1), sb=(b.stock>0?0:1);
+    if(sa!==sb) return sa-sb;
+    // Dentro de cada grupo, aplicar el orden elegido
+    if(sortVal==='za')         return b.name.localeCompare(a.name,'es');
+    if(sortVal==='price_asc')  return a.price-b.price;
+    if(sortVal==='price_desc') return b.price-a.price;
+    return a.name.localeCompare(b.name,'es');
+  });
+
+  const rc = document.getElementById('resultsCount');
+  if(rc) rc.textContent = `${prods.length} producto${prods.length!==1?'s':''}`;
+
+  // Active filters chips
+  const afEl = document.getElementById('activeFilters');
+  if(afEl){
+    const chips = [];
+    if(fStock!=='todos') chips.push({label: fStock==='con_stock'?'Con stock':'Sin stock', clear:"fStock='todos';applyFPanel_silent()"});
+    fSubs.forEach(s=>chips.push({label:s, clear:`fSubs=fSubs.filter(x=>x!=='${s}');applyFPanel_silent()`}));
+    fSizes.forEach(s=>chips.push({label:s+' cm', clear:`fSizes=fSizes.filter(x=>x!=='${s}');applyFPanel_silent()`}));
+    fTags.forEach(t=>{ const fl=FILTER_TAGS.find(f=>f.id===t); chips.push({label:fl?fl.label:t, clear:`fTags=fTags.filter(x=>x!=='${t}');applyFPanel_silent()`}); });
+    if(fSearch) chips.push({label:`"${fSearch}"`, clear:"fSearch='';document.getElementById('searchInput').value='';applyFPanel_silent()"});
+    afEl.innerHTML = chips.map(ch=>`<span class="af-chip">${ch.label}<button onclick="${ch.clear}">✕</button></span>`).join('');
+  }
+  updateClearBtn();
+
+  const el = document.getElementById('prodResults');
+  if(!el) return;
+  if(!prods.length){ el.innerHTML='<div class="no-results">No hay productos con esos filtros.</div>'; return; }
+
+  el.innerHTML = `<div class="prod-grid">${prods.map((p,i)=>{
+    const sub  = p._sub, size = p._size;
+    const key  = `${sub}|${size}|${p.name}`;
+    const ekey = esc(key);
+    const out  = p.stock===0;
+    const tags = getProductTags(p).join(',');
+    const sLbl = p.stock===1?'¡Última unidad!':'';
+    const cartItem = cart.find(ci=>ci.key===key);
+    const inCartBadge = cartItem ? `<div class="prod-in-cart">En carrito: ${cartItem.qty}</div>` : '';
+    const outBadge = out ? `<div class="out-badge"><span>Sin stock</span></div>` : '';
+    const imgContent = p.image
+      ? `<img src="${imgUrl(p.image)}" alt="${p.name}" loading="${i<6?'eager':'lazy'}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.style.display='none'"/>`
+      : `<span style="font-size:3rem">${icon(sub)}</span>`;
+    return `<div class="prod-card${out?' out':''}" data-key="${ekey}" data-stock="${p.stock||0}" data-tags="${tags}" data-sub="${esc(sub)}" style="animation-delay:${Math.min(i*0.04,0.4)}s">
+      <div class="prod-img img-shimmer" onclick="${out?'':` openModal('${esc(p.name)}','${esc(sub)}','${esc(size)}','${esc(p.image||'')}',${p.price||0},${p.stock||0})`}">
+        ${imgContent}${outBadge}${inCartBadge}
+        ${out?'':'<div class="prod-img-overlay"><span>Ver detalle</span></div>'}
+      </div>
+      <div class="prod-info">
+        <div class="prod-name">${p.name}</div>
+        <div style="font-size:0.72rem;color:var(--rose);margin-bottom:0.2rem;">${sub}${size?' · '+size+' cm':''}</div>
+        <div class="prod-price">${fmt(p.price)}</div>
+        <div class="prod-stock-lbl" style="color:#E74C3C">${sLbl}</div>
+        <div class="prod-actions">
+          <div class="qty-ctrl">
+            <button class="qty-btn" onclick="adjQty('${ekey}',-1)" ${out?'disabled':''}>−</button>
+            <input class="qty-input" id="q-${ekey}" type="number" min="1" max="${p.stock||1}" value="${qtys[key]||1}"
+              oninput="setQty('${ekey}',this.value,${p.stock||0})" ${out?'disabled':''}/>
+            <button class="qty-btn" onclick="adjQty('${ekey}',1)" ${out?'disabled':''}>+</button>
+          </div>
+          <button class="add-cart" onclick="addToCart('${esc(p.name)}','${esc(sub)}','${esc(size)}','${esc(imgUrl(p.image)||'')}','${ekey}',${p.price||0})" ${out?'disabled':''}>+ Agregar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
 requestIdleCallback(()=>initImagePrefetch(), {timeout:500});
 }
+
+// ── CART ───────────────────────────────────────────────────────────────────────
 function adjQty(key,d){
-const inp = document.getElementById('q-'+key);
-const cur = parseInt(inp?.value)||1;
-const max = parseInt(inp?.max)||9999;
-const val = cur+d;
-if(val > max){ showToast('⚠ Límite de stock alcanzado'); return; }
-if(val < 1) return;
-qtys[key] = val;
-if(inp) inp.value = val;
+  const inp = document.getElementById('q-'+key);
+  const cur = parseInt(inp?.value)||1;
+  const max = parseInt(inp?.max)||9999;
+  const val = cur+d;
+  if(val > max){ showToast('⚠ Límite de stock alcanzado'); return; }
+  if(val < 1) return;
+  qtys[key] = val;
+  if(inp) inp.value = val;
 }
 function setQty(key, val, max){
-let v = Math.max(1, parseInt(val)||1);
-if(max && v > max){ v = max; showToast('⚠ Límite de stock alcanzado'); }
-qtys[key] = v;
-const inp = document.getElementById('q-'+key);
-if(inp) inp.value = v;
+  let v = Math.max(1, parseInt(val)||1);
+  if(max && v > max){ v = max; showToast('⚠ Límite de stock alcanzado'); }
+  qtys[key] = v;
+  const inp = document.getElementById('q-'+key);
+  if(inp) inp.value = v;
 }
 function addToCart(name,sub,size,img,key,price){
-const qty = qtys[key]||1;
-const ex  = cart.find(i=>i.key===key);
-if(ex) ex.qty+=qty; else cart.push({key,name,sub,size,img,qty,price});
-updateCartUI();
-showToast(`✓ ${name} agregado`);
+  const qty = qtys[key]||1;
+  const ex  = cart.find(i=>i.key===key);
+  if(ex) ex.qty+=qty; else cart.push({key,name,sub,size,img,qty,price});
+  updateCartUI();
+  showToast(`✓ ${name} agregado`);
 }
 function addFromModal(){
-if(!modalItem) return;
-const {name,sub,size,img,price} = modalItem;
-const mqEl = document.getElementById('modalQty');
-modalQtyVal = Math.max(1, parseInt(mqEl?.value)||1);
-const key = `${sub}|${size}|${name}`;
-const ex  = cart.find(i=>i.key===key);
-if(ex) ex.qty+=modalQtyVal; else cart.push({key,name,sub,size,img,qty:modalQtyVal,price});
-updateCartUI();
-closeModal();
-showToast(`✓ ${name} agregado`);
+  if(!modalItem) return;
+  const {name,sub,size,img,price,stock} = modalItem;
+  const mqEl = document.getElementById('modalQty');
+  modalQtyVal = Math.max(1, parseInt(mqEl?.value)||1);
+  if(stock && modalQtyVal > stock){ modalQtyVal = stock; showToast('⚠ Límite de stock alcanzado'); return; }
+  const key = `${sub}|${size}|${name}`;
+  const ex  = cart.find(i=>i.key===key);
+  if(ex) ex.qty+=modalQtyVal; else cart.push({key,name,sub,size,img,qty:modalQtyVal,price});
+  updateCartUI();
+  closeModal();
+  showToast(`✓ ${name} agregado`);
 }
 function removeFromCart(key){ cart=cart.filter(i=>i.key!==key); updateCartUI(); }
 function saveCart(){ try{ localStorage.setItem('brillarte_cart', JSON.stringify(cart)); }catch(e){} }
 function loadCart(){ try{ const s=localStorage.getItem('brillarte_cart'); if(s) cart=JSON.parse(s); }catch(e){} }
+
 function updateCartUI(){
-const total  = cart.reduce((s,i)=>s+i.qty,0);
-const totalP = cart.reduce((s,i)=>s+(i.price||0)*i.qty,0);
-const countEl = document.getElementById('cartCount');
-const prevCount = parseInt(countEl.textContent)||0;
-countEl.textContent = total;
-if(total > prevCount){ countEl.classList.remove('bounce'); void countEl.offsetWidth; countEl.classList.add('bounce'); setTimeout(()=>countEl.classList.remove('bounce'),400); }
-document.getElementById('cartTotal').textContent = fmt(totalP);
-saveCart();
-document.querySelectorAll('.prod-card[data-key]').forEach(card=>{
-const key = decodeURIComponent(card.dataset.key||'').replace(/\\'/g,"'");
-const item = cart.find(ci=>ci.key===key||esc(ci.key)===card.dataset.key);
-let badge = card.querySelector('.prod-in-cart');
-if(item&&item.qty>0){
-if(!badge){badge=document.createElement('div');badge.className='prod-in-cart';card.querySelector('.prod-img')?.appendChild(badge);}
-badge.textContent=`En carrito: ${item.qty}`;
-} else if(badge) badge.remove();
-});
-const el = document.getElementById('cartItems');
-if(!cart.length){ el.innerHTML=document.getElementById('cartEmptyMsg')?.outerHTML||'<div class="cart-empty"><span class="cart-empty-icon">🛒</span><div class="cart-empty-title">Tu carrito está vacío</div><div class="cart-empty-sub">¡Explorá el catálogo!</div><button class="cart-empty-cta" onclick="toggleCart();gotoCatalog()">Ver catálogo</button></div>'; return; }
-el.innerHTML = cart.map(item=>`
-<div class="cart-item">
-<div class="cart-item-icon">${item.img?`<img src="${item.img}" alt="" onerror="this.parentElement.textContent='${icon(item.sub)}'"/>`:(icon(item.sub)||'💎')}</div>
-<div class="cart-item-info">
-<div class="cart-item-name">${item.name}</div>
-<div class="cart-item-sub">${item.sub}${item.size?' · '+item.size+' cm':''}</div>
-<div class="cart-item-price">x${item.qty} · ${fmt((item.price||0)*item.qty)}</div>
-</div>
-<button class="cart-item-remove" onclick="removeFromCart('${esc(item.key)}')">✕</button>
-</div>`).join('');
+  const total  = cart.reduce((s,i)=>s+i.qty,0);
+  const totalP = cart.reduce((s,i)=>s+(i.price||0)*i.qty,0);
+  const countEl = document.getElementById('cartCount');
+  const prevCount = parseInt(countEl.textContent)||0;
+  countEl.textContent = total;
+  if(total > prevCount){ countEl.classList.remove('bounce'); void countEl.offsetWidth; countEl.classList.add('bounce'); setTimeout(()=>countEl.classList.remove('bounce'),400); }
+  document.getElementById('cartTotal').textContent = fmt(totalP);
+  saveCart();
+  // refresh in-cart badges
+  document.querySelectorAll('.prod-card[data-key]').forEach(card=>{
+    const key = decodeURIComponent(card.dataset.key||'').replace(/\\'/g,"'");
+    const item = cart.find(ci=>ci.key===key||esc(ci.key)===card.dataset.key);
+    let badge = card.querySelector('.prod-in-cart');
+    if(item&&item.qty>0){
+      if(!badge){badge=document.createElement('div');badge.className='prod-in-cart';card.querySelector('.prod-img')?.appendChild(badge);}
+      badge.textContent=`En carrito: ${item.qty}`;
+    } else if(badge) badge.remove();
+  });
+  const el = document.getElementById('cartItems');
+  if(!cart.length){ el.innerHTML=document.getElementById('cartEmptyMsg')?.outerHTML||'<div class="cart-empty"><span class="cart-empty-icon">🛒</span><div class="cart-empty-title">Tu carrito está vacío</div><div class="cart-empty-sub">¡Explorá el catálogo!</div><button class="cart-empty-cta" onclick="toggleCart();gotoCatalog()">Ver catálogo</button></div>'; return; }
+  el.innerHTML = cart.map(item=>`
+    <div class="cart-item">
+      <div class="cart-item-icon">${item.img?`<img src="${item.img}" alt="" onerror="this.parentElement.textContent='${icon(item.sub)}'"/>`:(icon(item.sub)||'💎')}</div>
+      <div class="cart-item-info">
+        <div class="cart-item-name">${item.name}</div>
+        <div class="cart-item-sub">${item.sub}${item.size?' · '+item.size+' cm':''}</div>
+        <div class="cart-item-price">x${item.qty} · ${fmt((item.price||0)*item.qty)}</div>
+      </div>
+      <button class="cart-item-remove" onclick="removeFromCart('${esc(item.key)}')">✕</button>
+    </div>`).join('');
 }
 function toggleCart(){
-document.getElementById('cartOverlay').classList.toggle('open');
-document.getElementById('cartSidebar').classList.toggle('open');
+  document.getElementById('cartOverlay').classList.toggle('open');
+  document.getElementById('cartSidebar').classList.toggle('open');
 }
 function sendWA(){
-if(!cart.length) return;
-let msg = '¡Hola BrillArte! Quiero consultar por:\n\n';
-cart.forEach(i=>{
-msg += `• ${i.name}`;
-if(i.size) msg += ` (${i.sub} - ${i.size} cm)`;
-else msg += ` (${i.sub})`;
-msg += ` x${i.qty}`;
-if(i.price) msg += ` = ${fmt(i.price*i.qty)}`;
-msg += '\n';
-});
-const tot = cart.reduce((s,i)=>s+(i.price||0)*i.qty,0);
-if(tot) msg += `\n*Total: ${fmt(tot)}*`;
-msg += '\n\n¿Tienen disponibilidad? ¡Gracias!';
-window.open(`https://wa.me/${WA_NUM}?text=${encodeURIComponent(msg)}`,'_blank');
+  if(!cart.length) return;
+  let msg = '¡Hola BrillArte! Quiero consultar por:\n\n';
+  cart.forEach(i=>{
+    msg += `• ${i.name}`;
+    if(i.size) msg += ` (${i.sub} - ${i.size} cm)`;
+    else msg += ` (${i.sub})`;
+    msg += ` x${i.qty}`;
+    if(i.price) msg += ` = ${fmt(i.price*i.qty)}`;
+    msg += '\n';
+  });
+  const tot = cart.reduce((s,i)=>s+(i.price||0)*i.qty,0);
+  if(tot) msg += `\n*Total: ${fmt(tot)}*`;
+  msg += '\n\n¿Tienen disponibilidad? ¡Gracias!';
+  window.open(`https://wa.me/${WA_NUM}?text=${encodeURIComponent(msg)}`,'_blank');
 }
-function openModal(name,sub,size,img,price){
-modalItem = {name,sub,size,img,price};
-modalQtyVal = 1;
-const imgEl = document.getElementById('modalImg');
-imgEl.innerHTML = img
-? `<img src="${imgUrl(img)}" alt="${name}" loading="lazy" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="openLightbox(imgFull('${img}'))" onerror="this.parentElement.innerHTML='<span style=font-size:4rem>${icon(sub)}</span>'"/>`
-: `<span style="font-size:4rem">${icon(sub)}</span>`;
-document.getElementById('modalTag').textContent  = sub+(size?' · '+size+' cm':'');
-document.getElementById('modalName').textContent = name;
-document.getElementById('modalPrice').textContent= fmt(price);
-document.getElementById('modalMeta').innerHTML   = size
-? `<strong>Tamaño:</strong> ${size} cm<br><strong>Colección:</strong> ${sub}<br><br>Kit incluye lienzo, diamantes, lapicera y bandeja organizadora.`
-: `<strong>Categoría:</strong> ${sub}`;
-const mqEl = document.getElementById('modalQty');
-mqEl.value = 1;
-document.getElementById('modalOverlay').classList.add('open');
+
+// ── MODAL ──────────────────────────────────────────────────────────────────────
+function openModal(name,sub,size,img,price,stock){
+  modalItem = {name,sub,size,img,price,stock:stock||0};
+  modalQtyVal = 1;
+  const imgEl = document.getElementById('modalImg');
+  imgEl.innerHTML = img
+    ? `<img src="${imgUrl(img)}" alt="${name}" loading="lazy" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in" onclick="openLightbox(imgFull('${img}'))" onerror="this.parentElement.innerHTML='<span style=font-size:4rem>${icon(sub)}</span>'"/>`
+    : `<span style="font-size:4rem">${icon(sub)}</span>`;
+  document.getElementById('modalTag').textContent  = sub+(size?' · '+size+' cm':'');
+  document.getElementById('modalName').textContent = name;
+  document.getElementById('modalPrice').textContent= fmt(price);
+  document.getElementById('modalMeta').innerHTML   = size
+    ? `<strong>Tamaño:</strong> ${size} cm<br><strong>Colección:</strong> ${sub}<br><br>Kit incluye lienzo, diamantes, lapicera y bandeja organizadora.`
+    : `<strong>Categoría:</strong> ${sub}`;
+  const mqEl = document.getElementById('modalQty');
+  mqEl.value = 1; mqEl.max = stock||9999;
+  document.getElementById('modalOverlay').classList.add('open');
 }
 function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); modalItem=null; }
 function openLightbox(src){
-document.getElementById('lightboxImg').src = src;
-document.getElementById('lightbox').classList.add('open');
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightbox').classList.add('open');
 }
 function closeLightbox(){
-document.getElementById('lightbox').classList.remove('open');
-document.getElementById('lightboxImg').src = '';
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightboxImg').src = '';
 }
 function mQty(d){
-const inp = document.getElementById('modalQty');
-inp.value = Math.max(1,(parseInt(inp.value)||1)+d);
-modalQtyVal = parseInt(inp.value);
+  const inp = document.getElementById('modalQty');
+  inp.value = Math.max(1,(parseInt(inp.value)||1)+d);
+  modalQtyVal = parseInt(inp.value);
 }
 function mQtyInput(inp){
-modalQtyVal = Math.max(1,parseInt(inp.value)||1);
+  const max = parseInt(inp.max)||9999;
+  modalQtyVal = Math.max(1,parseInt(inp.value)||1);
+  if(modalQtyVal > max){ modalQtyVal = max; inp.value = max; showToast('⚠ Límite de stock alcanzado'); }
 }
+
+// ── TOAST ──────────────────────────────────────────────────────────────────────
 function showToast(msg){
-const t=document.getElementById('toast');
-t.textContent=msg; t.classList.add('show');
-clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2000);
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2000);
 }
+
+// ── BANNER ─────────────────────────────────────────────────────────────────────
+// Claves en hoja config:
+//   banner_activo = TRUE / FALSE
+//   banner_texto  = texto del banner (obligatorio para que aparezca)
+// Opcionales — si hay al menos uno, se habilita sección Novedades y botón "Ver novedades":
+//   novedad_1_titulo, novedad_1_texto, novedad_1_imagen  (hasta 5)
 function renderBanner(cfg){
-const rawActivo = cfg.banner_activo ?? cfg.Banner_activo ?? '';
-const activo = String(rawActivo).toLowerCase().trim();
-const bannerEl = document.getElementById('siteBanner');
-const esActivo = activo==='true' || activo==='1' || activo==='si' || activo==='sí';
-if(!esActivo){
-bannerEl?.classList.remove('active');
-return;
+  const rawActivo = cfg.banner_activo ?? cfg.Banner_activo ?? '';
+  const activo = String(rawActivo).toLowerCase().trim();
+  const bannerEl = document.getElementById('siteBanner');
+  const esActivo = activo==='true' || activo==='1' || activo==='si' || activo==='sí';
+  if(!esActivo){
+    bannerEl?.classList.remove('active');
+    return;
+  }
+  const texto = cfg.banner_texto || cfg.Banner_texto || '';
+  if(!texto){ bannerEl?.classList.remove('active'); return; }
+
+  // Check if there are novedades to show the CTA button
+  let hasNovedades = false;
+  for(let i=1;i<=5;i++){
+    if(cfg[`novedad_${i}_titulo`]||cfg[`Novedad_${i}_titulo`]){ hasNovedades=true; break; }
+  }
+  const ctaBtn = hasNovedades
+    ? `<button class="banner-cta" onclick="showPage('novedades')">Ver novedades</button>`
+    : '';
+
+  document.getElementById('bannerInner').innerHTML = `
+    <div class="banner-text-block">
+      <div class="banner-label">✦ BrillArte ✦</div>
+      <div class="banner-msg">${texto}</div>
+      ${ctaBtn}
+    </div>`;
+  bannerEl?.classList.add('active');
 }
-const texto = cfg.banner_texto || cfg.Banner_texto || '';
-if(!texto){ bannerEl?.classList.remove('active'); return; }
-let hasNovedades = false;
-for(let i=1;i<=5;i++){
-if(cfg[`novedad_${i}_titulo`]||cfg[`Novedad_${i}_titulo`]){ hasNovedades=true; break; }
-}
-const ctaBtn = hasNovedades
-? `<button class="banner-cta" onclick="showPage('novedades')">Ver novedades</button>`
-: '';
-document.getElementById('bannerInner').innerHTML = `
-<div class="banner-text-block">
-<div class="banner-label">✦ BrillArte ✦</div>
-<div class="banner-msg">${texto}</div>
-${ctaBtn}
-</div>`;
-bannerEl?.classList.add('active');
-}
+
+// ── NOVEDADES ───────────────────────────────────────────────────────────────────
+// Claves en hoja config para hasta 5 novedades:
+//   novedad_1_titulo, novedad_1_texto, novedad_1_imagen
+//   novedad_2_titulo, novedad_2_texto, novedad_2_imagen  ... etc.
+// También se activa el link "Novedades" en el nav si hay al menos una.
 function renderNovedades(cfg){
-const items = [];
-for(let i=1; i<=5; i++){
-const titulo = cfg[`novedad_${i}_titulo`] || cfg[`Novedad_${i}_titulo`] || '';
-if(!titulo) continue;
-items.push({
-titulo,
-texto:  cfg[`novedad_${i}_texto`]  || cfg[`Novedad_${i}_texto`]  || '',
-imagen: cfg[`novedad_${i}_imagen`] || cfg[`Novedad_${i}_imagen`] || '',
-});
+  const items = [];
+  for(let i=1; i<=5; i++){
+    const titulo = cfg[`novedad_${i}_titulo`] || cfg[`Novedad_${i}_titulo`] || '';
+    if(!titulo) continue;
+    items.push({
+      titulo,
+      texto:  cfg[`novedad_${i}_texto`]  || cfg[`Novedad_${i}_texto`]  || '',
+      imagen: cfg[`novedad_${i}_imagen`] || cfg[`Novedad_${i}_imagen`] || '',
+    });
+  }
+  const navNov = document.getElementById('navNovedadesLi');
+  if(navNov) navNov.style.display = items.length ? '' : 'none';
+  if(!items.length) return;
+
+  const grid = document.getElementById('novedadesGrid');
+  if(!grid) return;
+  grid.innerHTML = items.map(item=>{
+    const imgSrc = imgUrl(item.imagen);
+    const imgHtml = imgSrc
+      ? `<img class="novedad-img" src="${imgSrc}" alt="${item.titulo}" loading="lazy" style="cursor:zoom-in" onclick="openLightbox(imgUrl('${imgSrc}','full'))" onerror="this.outerHTML='<div class=novedad-img-placeholder>💎</div>'"/>`
+      : `<div class="novedad-img-placeholder">💎</div>`;
+    return `<div class="novedad-card">
+      ${imgHtml}
+      <div class="novedad-body">
+        <div class="novedad-label">Novedad</div>
+        <div class="novedad-title">${item.titulo}</div>
+        ${item.texto ? `<div class="novedad-text">${item.texto}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 }
-const navNov = document.getElementById('navNovedadesLi');
-if(navNov) navNov.style.display = items.length ? '' : 'none';
-if(!items.length) return;
-const grid = document.getElementById('novedadesGrid');
-if(!grid) return;
-grid.innerHTML = items.map(item=>{
-const imgSrc = imgUrl(item.imagen);
-const imgHtml = imgSrc
-? `<img class="novedad-img" src="${imgSrc}" alt="${item.titulo}" loading="lazy" style="cursor:zoom-in" onclick="openLightbox(imgUrl('${imgSrc}','full'))" onerror="this.outerHTML='<div class=novedad-img-placeholder>💎</div>'"/>`
-: `<div class="novedad-img-placeholder">💎</div>`;
-return `<div class="novedad-card">
-${imgHtml}
-<div class="novedad-body">
-<div class="novedad-label">Novedad</div>
-<div class="novedad-title">${item.titulo}</div>
-${item.texto ? `<div class="novedad-text">${item.texto}</div>` : ''}
-</div>
-</div>`;
-}).join('');
-}
+
+// ── MENU SIDEBAR ───────────────────────────────────────────────────────────────
 function toggleMenu(){
-document.getElementById('menuOverlay').classList.toggle('open');
-document.getElementById('menuSidebar').classList.toggle('open');
-if(document.getElementById('menuSidebar').classList.contains('open')) buildMenuBody();
+  document.getElementById('menuOverlay').classList.toggle('open');
+  document.getElementById('menuSidebar').classList.toggle('open');
+  if(document.getElementById('menuSidebar').classList.contains('open')) buildMenuBody();
 }
 function closeMenu(){
-document.getElementById('menuOverlay').classList.remove('open');
-document.getElementById('menuSidebar').classList.remove('open');
+  document.getElementById('menuOverlay').classList.remove('open');
+  document.getElementById('menuSidebar').classList.remove('open');
 }
 function toggleMenuSub(id){
-const sub = document.getElementById('menusub-'+id);
-const arrow = document.getElementById('menuarrow-'+id);
-if(!sub) return;
-sub.classList.toggle('open');
-if(arrow) arrow.classList.toggle('open');
+  const sub = document.getElementById('menusub-'+id);
+  const arrow = document.getElementById('menuarrow-'+id);
+  if(!sub) return;
+  sub.classList.toggle('open');
+  if(arrow) arrow.classList.toggle('open');
 }
 function buildMenuBody(){
-const catalog = DATA?.catalog || {};
-const mains = Object.keys(catalog);
-const hasNov = document.getElementById('navNovedadesLi')?.style.display !== 'none';
-let html = '';
-html += `<button class="menu-item" onclick="showPage('home')">Inicio</button>`;
-html += `<button class="menu-item" onclick="toggleMenuSub('productos')" style="display:flex;justify-content:space-between;align-items:center">
-<span>Productos</span>
-<span class="menu-item-arrow" id="menuarrow-productos">▼</span>
-</button>
-<div class="menu-sub" id="menusub-productos">`;
-html += `<button class="menu-sub-item bold" onclick="gotoCatalog();closeMenu()">🌟 Ver todo</button>`;
-mains.forEach(main=>{
-const mainId = 'main_' + main.replace(/[^a-zA-Z0-9]/g,'_');
-html += `<button class="menu-sub-item" onclick="toggleMenuSub('${mainId}')" style="display:flex;justify-content:space-between;align-items:center;width:100%">
-<span>${icon(main)} ${main}</span>
-<span class="menu-item-arrow" id="menuarrow-${mainId}" style="font-size:0.7rem">▼</span>
-</button>
-<div class="menu-sub-sub" id="menusub-${mainId}">`;
-html += `<button class="menu-sub-sub-item" onclick="drillMain('${esc(main)}');closeMenu()">✨ Ver todo ${main}</button>`;
-const mainData = catalog[main] || {};
-if(main === 'Diamond Painting'){
-const allSizes = new Set();
-Object.values(mainData).forEach(sub=>{
-if(typeof sub==='object'&&!Array.isArray(sub)) Object.keys(sub).forEach(sz=>allSizes.add(sz));
-});
-[...allSizes].sort().forEach(sz=>{
-html += `<button class="menu-sub-sub-item" onclick="drillMainWithSize('${esc(main)}','${esc(sz)}')">📐 ${sz} cm</button>`;
-});
-} else {
-Object.keys(mainData).forEach(sub=>{
-html += `<button class="menu-sub-sub-item" onclick="drillMainWithSub('${esc(main)}','${esc(sub)}')">${icon(sub)} ${sub}</button>`;
-});
+  const catalog = DATA?.catalog || {};
+  const mains = Object.keys(catalog);
+  const hasNov = document.getElementById('navNovedadesLi')?.style.display !== 'none';
+
+  let html = '';
+
+  // Inicio
+  html += `<button class="menu-item" onclick="showPage('home')">Inicio</button>`;
+
+  // Productos — solo abre desplegable, no navega
+  html += `<button class="menu-item" onclick="toggleMenuSub('productos')" style="display:flex;justify-content:space-between;align-items:center">
+    <span>Productos</span>
+    <span class="menu-item-arrow" id="menuarrow-productos">▼</span>
+  </button>
+  <div class="menu-sub" id="menusub-productos">`;
+
+  // Ver todo → vista de los 2 mains
+  html += `<button class="menu-sub-item bold" onclick="gotoCatalog();closeMenu()">🌟 Ver todo</button>`;
+
+  mains.forEach(main=>{
+    const mainId = 'main_' + main.replace(/[^a-zA-Z0-9]/g,'_');
+    // Main — solo abre su desplegable, no navega
+    html += `<button class="menu-sub-item" onclick="toggleMenuSub('${mainId}')" style="display:flex;justify-content:space-between;align-items:center;width:100%">
+      <span>${icon(main)} ${main}</span>
+      <span class="menu-item-arrow" id="menuarrow-${mainId}" style="font-size:0.7rem">▼</span>
+    </button>
+    <div class="menu-sub-sub" id="menusub-${mainId}">`;
+
+    // Ver todo del main — sin filtros
+    html += `<button class="menu-sub-sub-item" onclick="drillMain('${esc(main)}');closeMenu()">✨ Ver todo ${main}</button>`;
+
+    const mainData = catalog[main] || {};
+    if(main === 'Diamond Painting'){
+      const allSizes = new Set();
+      Object.values(mainData).forEach(sub=>{
+        if(typeof sub==='object'&&!Array.isArray(sub)) Object.keys(sub).forEach(sz=>allSizes.add(sz));
+      });
+      [...allSizes].sort().forEach(sz=>{
+        html += `<button class="menu-sub-sub-item" onclick="drillMainWithSize('${esc(main)}','${esc(sz)}')">📐 ${sz} cm</button>`;
+      });
+    } else {
+      Object.keys(mainData).forEach(sub=>{
+        html += `<button class="menu-sub-sub-item" onclick="drillMainWithSub('${esc(main)}','${esc(sub)}')">${icon(sub)} ${sub}</button>`;
+      });
+    }
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+  if(hasNov) html += `<button class="menu-item" onclick="showPage('novedades')">Novedades</button>`;
+  html += `<button class="menu-item" onclick="showPage('nosotros')">Nosotros</button>`;
+  html += `<button class="menu-item" onclick="showPage('contacto')" style="border-bottom:none">Contacto</button>`;
+
+  document.getElementById('menuBody').innerHTML = html;
 }
-html += `</div>`;
-});
-html += `</div>`;
-if(hasNov) html += `<button class="menu-item" onclick="showPage('novedades')">Novedades</button>`;
-html += `<button class="menu-item" onclick="showPage('nosotros')">Nosotros</button>`;
-html += `<button class="menu-item" onclick="showPage('contacto')" style="border-bottom:none">Contacto</button>`;
-document.getElementById('menuBody').innerHTML = html;
-}
+
+// Navigation helpers for menu
 function drillMainWithSize(main, size){
-closeMenu();
-nav = {main, sub:null, size:null};
-resetFilters();
-fSizes = [size];
-showPage('catalog');
+  closeMenu();
+  nav = {main, sub:null, size:null};
+  resetFilters();
+  // Apply size filter
+  fSizes = [size];
+  showPage('catalog');
 }
 function drillMainWithSub(main, sub){
-closeMenu();
-nav = {main, sub:null, size:null};
-resetFilters();
-fSubs = [sub];
-showPage('catalog');
+  closeMenu();
+  nav = {main, sub:null, size:null};
+  resetFilters();
+  fSubs = [sub];
+  showPage('catalog');
 }
+
+// ── SORT ───────────────────────────────────────────────────────────────────────
+
+
+// ── APPLY SILENT (for chip removal) ────────────────────────────────────────────
 function applyFPanel_silent(){
-updateClearBtn();
-const catalog = DATA?.catalog || {};
-const mainData = catalog[nav.main] || {};
-renderProductsFiltered(sortProds(flattenMain(mainData)));
+  updateClearBtn();
+  const catalog = DATA?.catalog || {};
+  const mainData = catalog[nav.main] || {};
+  renderProductsFiltered(sortProds(flattenMain(mainData)));
 }
+
+// ── WA PREVIEW ─────────────────────────────────────────────────────────────────
 function buildWAMsg(){
-let msg = '\u00a1Hola BrillArte! Quiero consultar por:\n\n';
-let tot = 0;
-cart.forEach(item=>{
-const sub  = item.sub  || '';
-const size = item.size || '';
-const detail = [sub, size?size+' cm':''].filter(Boolean).join(' - ');
-msg += '\u2022 ' + item.name + (detail?' ('+detail+')':'') + ' x' + item.qty + ' = ' + fmt(item.price*item.qty) + '\n';
-tot += item.price * item.qty;
-});
-if(tot) msg += '\n*Total: ' + fmt(tot) + '*';
-msg += '\n\n\u00bfTienen disponibilidad? \u00a1Gracias!';
-return msg;
+  let msg = '\u00a1Hola BrillArte! Quiero consultar por:\n\n';
+  let tot = 0;
+  cart.forEach(item=>{
+    const sub  = item.sub  || '';
+    const size = item.size || '';
+    const detail = [sub, size?size+' cm':''].filter(Boolean).join(' - ');
+    msg += '\u2022 ' + item.name + (detail?' ('+detail+')':'') + ' x' + item.qty + ' = ' + fmt(item.price*item.qty) + '\n';
+    tot += item.price * item.qty;
+  });
+  if(tot) msg += '\n*Total: ' + fmt(tot) + '*';
+  msg += '\n\n\u00bfTienen disponibilidad? \u00a1Gracias!';
+  return msg;
 }
 function openWAPreview(){
-if(!cart.length){ showToast('Agregá productos primero'); return; }
-document.getElementById('wapreviewText').textContent = buildWAMsg();
-document.getElementById('wapreviewOverlay').classList.add('open');
+  if(!cart.length){ showToast('Agregá productos primero'); return; }
+  document.getElementById('wapreviewText').textContent = buildWAMsg();
+  document.getElementById('wapreviewOverlay').classList.add('open');
 }
 function closeWAPreview(){
-document.getElementById('wapreviewOverlay').classList.remove('open');
+  document.getElementById('wapreviewOverlay').classList.remove('open');
 }
 function confirmSendWA(){
-closeWAPreview();
-window.open(`https://wa.me/${WA_NUM}?text=${encodeURIComponent(buildWAMsg())}`,'_blank');
+  closeWAPreview();
+  window.open(`https://wa.me/${WA_NUM}?text=${encodeURIComponent(buildWAMsg())}`,'_blank');
 }
+
+// ── BACK TO TOP ─────────────────────────────────────────────────────────────────
 window.addEventListener('scroll',()=>{
-const btn = document.getElementById('backTop');
-if(btn) btn.classList.toggle('show', window.scrollY > 400);
+  const btn = document.getElementById('backTop');
+  if(btn) btn.classList.toggle('show', window.scrollY > 400);
 });
+
+// ── INIT ───────────────────────────────────────────────────────────────────────
+// ── IMAGE PREFETCH ─────────────────────────────────────────────────────────────
 function initImagePrefetch(){
+// Observe visible area — load images as user scrolls
 const observer = new IntersectionObserver((entries)=>{
 entries.forEach(entry=>{
 if(!entry.isIntersecting) return;
@@ -1250,6 +1376,8 @@ observer.unobserve(img);
 });
 },{rootMargin:'300px'});
 document.querySelectorAll('.prod-img img').forEach(img=>observer.observe(img));
+// Background batch prefetch — load all remaining images in batches of 8
+// using requestIdleCallback so it only runs when browser is free
 const allImgs = [...document.querySelectorAll('.prod-img img')];
 let batchIdx = 6; // first 6 already eager
 function prefetchBatch(){
@@ -1268,14 +1396,15 @@ requestIdleCallback(prefetchBatch,{timeout:2000});
 }
 loadCart();
 window._loadingPromise = loadData().then(()=>{
-const waLink = document.getElementById('waLink');
-const waFloat = document.getElementById('waFloat');
-if(waLink) waLink.href = `https://wa.me/${WA_NUM}`;
-if(waFloat) waFloat.href = `https://wa.me/${WA_NUM}`;
-renderBanner(DATA.config || {});
-renderNovedades(DATA.config || {});
-window._loadingPromise = null;
+  const waLink = document.getElementById('waLink');
+  const waFloat = document.getElementById('waFloat');
+  if(waLink) waLink.href = `https://wa.me/${WA_NUM}`;
+  if(waFloat) waFloat.href = `https://wa.me/${WA_NUM}`;
+  renderBanner(DATA.config || {});
+  renderNovedades(DATA.config || {});
+  window._loadingPromise = null;
 });
-updateCartUI();</script>
+updateCartUI();
+</script>
 </body>
 </html>
